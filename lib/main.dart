@@ -1,4 +1,10 @@
+import 'dart:async';
+
 import 'package:amplify_test/ListAllView.dart';
+import 'package:amplify_test/login_screen.dart';
+import 'package:amplify_test/routes/route_contants.dart';
+import 'package:amplify_test/routes/routes.dart';
+import 'package:amplify_test/signup_screen.dart';
 import 'package:flutter/material.dart';
 
 // Amplify Flutter Packages
@@ -14,6 +20,7 @@ void main() {
   runApp(const MyApp());
 }
 
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -23,13 +30,25 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
+      initialRoute: RouteConstants.splashScreen,
+      routes: Routes.routes,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const ListAllView(),
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -40,12 +59,15 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
+
 class _MyHomePageState extends State<MyHomePage> {
 
   bool _amplifyConfigured = false;
+  StreamSubscription? subscription;
   ValueNotifier<List<Post>> posts = ValueNotifier([]);
   TextEditingController titleController = TextEditingController();
   TextEditingController contentController = TextEditingController();
+  final ScrollController _controller = ScrollController();
 
   @override
   void initState() {
@@ -58,7 +80,7 @@ class _MyHomePageState extends State<MyHomePage> {
       modelProvider: ModelProvider.instance,
     );
     // Add the following line and update your function call with `addPlugins`
-    final api = AmplifyAPI();
+    final api = AmplifyAPI(modelProvider: ModelProvider.instance);
     await Amplify.addPlugins([datastorePlugin, api]);
     try {
       await Amplify.configure(amplifyconfig);
@@ -66,6 +88,7 @@ class _MyHomePageState extends State<MyHomePage> {
         setState(() {
           _amplifyConfigured = true;
         });
+        subscribe();
       }catch(e){
         print(e);
       }
@@ -81,52 +104,78 @@ class _MyHomePageState extends State<MyHomePage> {
     return SafeArea(
       child: Scaffold(
         body: Center(
-          child: Column(
-            children: [
-              Padding(padding: const EdgeInsets.all(10),
-              child: Column(
-                  children: [TextFormField(controller: titleController, decoration: const InputDecoration(hintText: "title"),),
-                    TextFormField(controller: contentController, decoration: const InputDecoration(hintText: "content"),),
-                    ElevatedButton(onPressed: (){
-                      addData();
-                    }, child: const Text("Submit"))
-              ]),
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                Padding(padding: const EdgeInsets.all(10),
+                child: Column(
+                    children: [TextFormField(controller: titleController, decoration: const InputDecoration(hintText: "title"),),
+                      TextFormField(controller: contentController, decoration: const InputDecoration(hintText: "content"),),
+                      ElevatedButton(onPressed: (){
+                        addData();
+                      }, child: const Text("Submit"))
+                ]),
 
-              ),
-              ElevatedButton(onPressed: (){
+                ),
+                ElevatedButton(onPressed: (){
 
-              updateData();
+                updateData();
 
-            }, child: const Text("Fetch")),
-                const SizedBox(height: 20,),
+              }, child: const Text("Fetch")),
+                  const SizedBox(height: 20,),
 
-                SingleChildScrollView(
-                  child: ValueListenableBuilder<List<Post>>(
-                      valueListenable: posts, builder: (BuildContext context, value, Widget? child){
-                        return ListView.separated(
-                          padding: const EdgeInsets.all(8),
-                          itemCount: posts.value.length,
-                          shrinkWrap: true,
-                          itemBuilder: (BuildContext context, int index) {
-                            return Center(child: Column(children:
-                            [Text("Title : ${posts.value[index].title}"),
-                            Text("Content : ${posts.value[index].content}"),
-                            ElevatedButton(onPressed: (){
-                              deleteData(posts.value[index]);
-                            }, child: const Text("Delete"))],)
-                            );
-                          },
-                          separatorBuilder: (BuildContext context, int index) => const Divider(),
-                        );
-                  }),
-                )
+                   ValueListenableBuilder<List<Post>>(
+                        valueListenable: posts, builder: (BuildContext context, value, Widget? child){
+                          return ListView.separated(
+                            padding: const EdgeInsets.all(8),
+                            itemCount: posts.value.length,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            controller: _controller,
+                            scrollDirection: Axis.vertical,
+                            shrinkWrap: true,
+                            itemBuilder: (BuildContext context, int index) {
+                              return Center(child: Column(children:
+                              [Text("Title : ${posts.value[index].title}"),
+                              Text("Content : ${posts.value[index].content}"),
+                              ElevatedButton(onPressed: (){
+                                deleteData(posts.value[index]);
+                              }, child: const Text("Delete"))],)
+                              );
+                            },
+                            separatorBuilder: (BuildContext context, int index) => const Divider(),
+                          );
+                    }),
 
-          ]
+
+            ]
+            ),
           ),
         ),
       ),
     );
   }
+
+  void subscribe() {
+    final subscriptionRequest = ModelSubscriptions.onCreate(Post.classType);
+    final Stream<GraphQLResponse<Post>> operation = Amplify.API.subscribe(
+      subscriptionRequest,
+      onEstablished: () => print('Subscription established'),
+    );
+    subscription = operation.listen(
+          (event) {
+        print('Subscription event data received: ${event.data}');
+        setState(() {
+          posts.value.add(event.data?? Post(title: "Loading..."));
+        });
+      },
+      onError: (Object e) => print('Error in subscription stream: $e'),
+    );
+  }
+
+  void unsubscribe() {
+    subscription?.cancel();
+  }
+
 
   Future<void> addData() async {
     final item = Post(
@@ -134,6 +183,9 @@ class _MyHomePageState extends State<MyHomePage> {
         comments: [],
         content: contentController.text);
     await Amplify.DataStore.save(item);
+
+    titleController.clear();
+    contentController.clear();
   }
 
   Future<void> deleteData(Post post) async {
