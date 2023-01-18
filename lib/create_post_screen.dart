@@ -56,7 +56,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         content: contentController.text);
     await Amplify.DataStore.save(item).then((value) => {
     titleController.clear(), contentController.clear(),
-    Navigator.pushReplacementNamed(context, RouteConstants.viewAllList)
+    Navigator.pushNamedAndRemoveUntil(context, RouteConstants.viewAllList ,
+    (route)=> false)
     });
   }
 }

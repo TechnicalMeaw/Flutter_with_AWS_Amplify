@@ -38,12 +38,12 @@ class _ListAllViewState extends State<ListAllView> {
     super.initState();
   }
 
-  // @override
-  // void didChangeAppLifecycleState(AppLifecycleState state) {
-  //   if (state == AppLifecycleState.resumed) {
-  //     getData();
-  //   }
-  // }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      getData();
+    }
+  }
 
   void _configureAmplify() async {
     final datastorePlugin = AmplifyDataStore(
@@ -166,6 +166,8 @@ class _ListAllViewState extends State<ListAllView> {
   }
 
   Future<void> getData() async {
+    allPostsMap.value.clear();
+
     await Amplify.DataStore.start();
     try {
       await Amplify.DataStore.query(Post.classType).then((value) =>
