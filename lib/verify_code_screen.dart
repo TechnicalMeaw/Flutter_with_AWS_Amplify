@@ -18,6 +18,7 @@ class VerifyCodeScreen extends StatefulWidget {
 class _VerifyCodeScreenState extends State<VerifyCodeScreen> {
 
   TextEditingController codeController = TextEditingController();
+  bool isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +27,10 @@ class _VerifyCodeScreenState extends State<VerifyCodeScreen> {
         body: Center(
           child: SingleChildScrollView(
             child: Padding(padding: const EdgeInsets.all(10),
-              child: Column(
+              child: isLoading
+                  ? const Center(
+                    child: CircularProgressIndicator(),)
+                  : Column(
                   children: [
                     const Text("Verify Code", textScaleFactor: 2,),
                     const SizedBox(height: 50,),
@@ -44,16 +48,35 @@ class _VerifyCodeScreenState extends State<VerifyCodeScreen> {
   }
 
   Future<void> _verifyCode(BuildContext context, username, password, String code) async {
+    setState(() {
+      isLoading = true;
+    });
     try{
       final res = await Amplify.Auth.confirmSignUp(username: username, confirmationCode: code);
 
       if (res.isSignUpComplete){
         await Amplify.Auth.signIn(username: username, password: password);
         Navigator.pushReplacementNamed(context, RouteConstants.viewAllList);
+        setState(() {
+          isLoading = false;
+        });
       }
 
     }catch(e){
       print(e);
+      setState(() {
+        isLoading = false;
+      });
+      _showToast(context, e.toString());
     }
+  }
+
+  void _showToast(BuildContext context, String text) {
+    final scaffold = ScaffoldMessenger.of(context);
+    scaffold.showSnackBar(
+      SnackBar(
+        content: Text(text),
+      ),
+    );
   }
 }

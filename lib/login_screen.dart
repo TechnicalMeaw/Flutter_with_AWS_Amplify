@@ -22,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _amplifyConfigured = false;
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
+  bool isLoading = false;
 
   @override
   void initState() {
@@ -38,7 +39,10 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
                 children: [
                   Padding(padding: const EdgeInsets.all(10),
-                    child: Column(
+                    child: isLoading
+                        ? const Center(
+                          child: CircularProgressIndicator(),)
+                        : Column(
                         children: [
                           const Text("Sign In", textScaleFactor: 2,),
                           const SizedBox(height: 50,),
@@ -50,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: const InputDecoration(hintText: "password", ),),
                           const SizedBox(height: 20,),
                           ElevatedButton(onPressed: (){
-                            signIn(emailController.text, passwordController.text);
+                            signIn(emailController.text.trim(), passwordController.text);
                           }, child: const Text("Sign In")),
                           const SizedBox(height: 20,),
                           TextButton(onPressed: (){
@@ -98,6 +102,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
 
   Future<void> signIn(username, password) async{
+    setState(() {
+      isLoading = true;
+    });
     try {
       SignInResult res = await Amplify.Auth.signIn(
         username: username,
@@ -106,12 +113,27 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         if (res.isSignedIn){
           // Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ListAllView()));
+          isLoading = false;
           Navigator.pushReplacementNamed(context, RouteConstants.viewAllList);
         }
       });
     } catch (e) {
 
+      _showToast(context, e.toString());
+      setState(() {
+        isLoading = false;
+      });
       print("Error on signin: $e");
     }
+  }
+
+
+  void _showToast(BuildContext context, String text) {
+    final scaffold = ScaffoldMessenger.of(context);
+    scaffold.showSnackBar(
+      SnackBar(
+        content: Text(text),
+      ),
+    );
   }
 }

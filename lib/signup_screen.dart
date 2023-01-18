@@ -32,6 +32,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   TextEditingController emailController = TextEditingController();
   TextEditingController phoneController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
+  bool isLoading = false;
 
   bool isSignUpComplete = false;
   bool isSignedIn = false;
@@ -45,7 +46,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
             child: Column(
                 children: [
                   Padding(padding: const EdgeInsets.all(10),
-                    child: Column(
+                    child: isLoading
+                        ? const Center(
+                          child: CircularProgressIndicator(),)
+                        : Column(
                         children: [
                           const Text("Sign Up", textScaleFactor: 2,),
                           const SizedBox(height: 50,),
@@ -111,48 +115,49 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
 
   Future<void> signUp() async{
+    setState(() {
+      isLoading = true;
+    });
+
     try {
       Map<String, dynamic> userAttributes = {
-        "email": emailController.text,
-        "phone_number": "+91${phoneController.text}",
+        "email": emailController.text.trim(),
+        "phone_number": "+91${phoneController.text.trim()}",
         // additional attributes as needed
       };
 
       SignUpResult res = await Amplify.Auth.signUp(
-          username: emailController.text,
+          username: emailController.text.trim(),
           password: passwordController.text,
           options: CognitoSignUpOptions(
-              userAttributes: {CognitoUserAttributeKey.email : emailController.text,
-              CognitoUserAttributeKey.phoneNumber : "+91${phoneController.text}",
-              CognitoUserAttributeKey.name : nameController.text})
+              userAttributes: {CognitoUserAttributeKey.email : emailController.text.trim(),
+              CognitoUserAttributeKey.phoneNumber : "+91${phoneController.text.trim()}",
+              CognitoUserAttributeKey.name : nameController.text.trim()})
       );
       setState(() {
         isSignUpComplete = res.isSignUpComplete;
         if (res.isSignUpComplete){
-          Navigator.of(context).push(MaterialPageRoute(builder: (context) => VerifyCodeScreen(username: emailController.text.toString(), password: passwordController.text.toString(),)));
+          isLoading = false;
+          Navigator.of(context).push(MaterialPageRoute(builder: (context) => VerifyCodeScreen(username: emailController.text.trim().toString(), password: passwordController.text.trim().toString(),)));
         }
       });
     } catch (e) {
       print(e);
+      setState(() {
+        isLoading = false;
+      });
+      _showToast(context, e.toString());
     }
   }
 
 
-  Future<void> signIn(username, password) async{
-    try {
-      SignInResult res = await Amplify.Auth.signIn(
-        username: username,
-        password: password,
-      );
-      setState(() {
-        isSignedIn = res.isSignedIn;
-        if (res.isSignedIn){
-          Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ListAllView()));
-        }
-      });
-    } catch (e) {
-      print(e);
-    }
+  void _showToast(BuildContext context, String text) {
+    final scaffold = ScaffoldMessenger.of(context);
+    scaffold.showSnackBar(
+      SnackBar(
+        content: Text(text),
+      ),
+    );
   }
 
 }

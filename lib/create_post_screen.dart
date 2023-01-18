@@ -1,4 +1,5 @@
 import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:amplify_test/routes/route_contants.dart';
 import 'package:flutter/material.dart';
 
 import 'models/Post.dart';
@@ -53,9 +54,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         title: titleController.text,
         comments: [],
         content: contentController.text);
-    await Amplify.DataStore.save(item);
-
-    titleController.clear();
-    contentController.clear();
+    await Amplify.DataStore.save(item).then((value) => {
+    titleController.clear(), contentController.clear(),
+    Navigator.pushReplacementNamed(context, RouteConstants.viewAllList)
+    });
   }
 }

@@ -4,6 +4,7 @@ import 'package:amplify_datastore/amplify_datastore.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_test/routes/route_contants.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import 'amplifyconfiguration.dart';
 import 'models/ModelProvider.dart';
@@ -19,6 +20,7 @@ class ListAllView extends StatefulWidget {
 class _ListAllViewState extends State<ListAllView> {
   bool _amplifyConfigured = false;
   StreamSubscription? subscription;
+  ValueNotifier<Map<String, Post>> allPostsMap = ValueNotifier({});
   ValueNotifier<List<Post>> allPosts = ValueNotifier([]);
   final ScrollController _controller = ScrollController();
   ValueNotifier<bool> _isLogOutEnabled = ValueNotifier(false);
@@ -31,18 +33,17 @@ class _ListAllViewState extends State<ListAllView> {
       _configureAmplify();
     }else{
       getData();
-      subscribe();
       checkUserSignedIn();
     }
     super.initState();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      getData();
-    }
-  }
+  // @override
+  // void didChangeAppLifecycleState(AppLifecycleState state) {
+  //   if (state == AppLifecycleState.resumed) {
+  //     getData();
+  //   }
+  // }
 
   void _configureAmplify() async {
     final datastorePlugin = AmplifyDataStore(
@@ -58,7 +59,6 @@ class _ListAllViewState extends State<ListAllView> {
           _amplifyConfigured = true;
         });
         getData();
-        subscribe();
         checkUserSignedIn();
       } catch (e) {
         print(e);
@@ -107,7 +107,8 @@ class _ListAllViewState extends State<ListAllView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
 
                     children:
-                  [const SizedBox(height: 20,),
+                  [const SizedBox(height: 10,),
+                    Text("${posts[index].createdAt?.getDateTimeInUtc().toString().substring(0, 16)}", textAlign: TextAlign.end,),
                     Text("Title : ${posts[index].title}", style: const TextStyle(
                     fontSize: 18.0,
                     color: Colors.black,
@@ -118,10 +119,15 @@ class _ListAllViewState extends State<ListAllView> {
                     const SizedBox(height: 10,),
                     Text("Content : ${posts[index].content}"),
                     const SizedBox(height: 20,),
-                    // ElevatedButton(onPressed: (){
-                    //   deleteData(posts[index]);
-                    // }, child: const Text("Delete"))
-                  ],)
+                    ValueListenableBuilder(valueListenable: _isLogOutEnabled, builder: (BuildContext context, isEnabled, Widget? child) {
+                      return MaterialButton(onPressed: isEnabled ? (){
+                        deleteData(posts[index]);
+                      } : null,
+                          color: Theme.of(context).primaryColor,
+                          textColor: Colors.white,
+                          disabledColor: Colors.black12,
+                          child: const Text("Delete"));
+                    })],)
                   );
                 },
                 separatorBuilder: (BuildContext context, int index) => const Divider(),
@@ -162,16 +168,24 @@ class _ListAllViewState extends State<ListAllView> {
   Future<void> getData() async {
     await Amplify.DataStore.start();
     try {
-      allPosts.value = await Amplify.DataStore.query(Post.classType);
-      print(allPosts.value);
+      await Amplify.DataStore.query(Post.classType).then((value) =>
+      {
+        for (Post i in value){
+          allPostsMap.value[i.id] = i
+        },
+        allPosts.value = allPostsMap.value.values.toList().reversed.toList(),
+        subscribe()
+      }
+      );
+      print(allPostsMap.value);
     } catch (e) {
       print("Could not query DataStore: $e");
     }
   }
 
   Future<void> deleteData(Post post) async {
-    await Amplify.DataStore.delete(post);
-    getData();
+    await Amplify.DataStore.delete(post).then((value) => getData());
+
   }
 
   void subscribe() {
@@ -185,7 +199,8 @@ class _ListAllViewState extends State<ListAllView> {
         print('Subscription event data received: ${event.data}');
 
         setState(() {
-          allPosts.value.add(event.data?? Post(title: "Loading..."));
+          allPostsMap.value[event.data?.id?? ""] = (event.data?? Post(title: "Loading..."));
+          allPosts.value = allPostsMap.value.values.toList().reversed.toList();
         });
 
       },
